@@ -9,7 +9,7 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "search_courses",
     description:
-      "Search NSQF-aligned skill courses from NQR / SIDH / PM-AJAY / PM-DAKSH / Vishwakarma.",
+      "Search the saved PM-AJAY government course snapshot using skills, education and location.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -26,7 +26,7 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "search_jobs",
     description:
-      "Search district-level wage jobs shaped like National Career Service listings.",
+      "Search the saved National Career Service job snapshot using skills, education and location.",
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -66,23 +66,47 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
     },
   },
   {
-    name: "save_profile",
+    name: "update_profile",
     description:
-      "Save the counselling profile and the 2–3 options you recommended. Call this before ending.",
+      "Silently merge newly learned or corrected beneficiary facts into the persistent profile. Call after every caller answer; send only facts learned in that turn. The response reports whether the profile is complete and which fields are still missing.",
     parameters: {
       type: Type.OBJECT,
       properties: {
         name: string("Beneficiary name"),
-        village: string("Village or block"),
+        village: string("Village name"),
+        block: string("Block name, when the caller gives a block instead of a village"),
         district: string("District"),
         state: string("State"),
-        education: string("Education band"),
-        familyOccupation: string("Traditional or family work"),
-        currentLivelihood: string("What they do now"),
-        skills: string("Skills and interests"),
-        constraints: string("Mobility, health, childcare notes"),
+        education: string(
+          "Normalised education band: none | 5th | 8th | 10th | 12th | iti | graduate",
+        ),
+        familyOccupation: string(
+          "Traditional or family work; save none or not disclosed when explicitly stated",
+        ),
+        currentLivelihood: string(
+          "What they currently do for income; save unemployed when explicitly stated",
+        ),
+        skills: string(
+          "Skills and interests; save none when the caller explicitly has none",
+        ),
+        priorTraining: string(
+          "Any prior course or training, including PM-DAKSH; save none when explicitly stated",
+        ),
+        constraints: string(
+          "Travel, health, or childcare limits; save none when explicitly stated",
+        ),
         preference: string("wage | self | either"),
         language: string("Language they spoke"),
+      },
+    },
+  },
+  {
+    name: "save_recommendations",
+    description:
+      "Save the 2–3 options already discussed with the beneficiary. Call only after the profile is complete and catalog searches have finished.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
         recommendations: {
           type: Type.ARRAY,
           description: "The options you spoke on the call",
@@ -95,9 +119,11 @@ export const FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
               detail: string("Why it fits, in their language or simple English"),
               sourceUrl: string("Official URL"),
             },
+            required: ["kind", "id", "title", "detail"],
           },
         },
       },
+      required: ["recommendations"],
     },
   },
 ];
