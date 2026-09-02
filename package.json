@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "data:refresh": "node scripts/refresh-government-data.mjs",
+    "data:refresh:offline": "node scripts/refresh-government-data.mjs --offline",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { liveConnectConfig, LIVE_MODEL } from "@/lib/live/config";
 import { createInterview } from "@/lib/interviews/store";
+import { ensureUserProfile } from "@/lib/profiles/store";
 
 export async function POST() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -12,6 +13,7 @@ export async function POST() {
   }
 
   const interview = await createInterview();
+  const profile = await ensureUserProfile(interview.id, interview.profile);
   const ai = new GoogleGenAI({ apiKey });
   const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
   const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
@@ -35,6 +37,7 @@ export async function POST() {
   return Response.json({
     token: token.name,
     interviewId: interview.id,
+    profileId: profile.id,
     model: LIVE_MODEL,
   });
 }
