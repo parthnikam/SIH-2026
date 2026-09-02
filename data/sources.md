@@ -15,4 +15,4 @@ Seeded from public government pages. No login-walled MIS was scraped.
 | Self-employment credit | NSFDC | https://nsfdc.nic.in |
 | Informal worker job match | e-Shram (via NCS) | https://eshram.gov.in |
 
-Run `npm run data:refresh` to fetch every available PM-AJAY course and NCS job into `data/generated/`. Complete upstream records are retained in `*.raw.json`; cleaned files power the recommendation search. App startup never contacts either portal. If a refresh fails, the last good snapshot is retained; a clean clone falls back to the seeded proof-of-concept catalog.
+Run `npm run data:refresh` to fetch every available PM-AJAY course and NCS job into `data/generated/`. Complete upstream records are retained in `*.raw.json`; cleaned files power the recommendation search. App startup never contacts either portal. If a refresh fails, the last good snapshot is retained. There is no seed fallback: a clean clone must be refreshed before the app starts. Catalog API and AI tool responses include `catalogSource`, which identifies the primary file actually searched.

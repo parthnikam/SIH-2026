@@ -33,6 +33,8 @@ next-env.d.ts
 
 # Local runtime data
 /data/runtime-interviews.json
+/data/runtime-user-profiles.json
+/data/generated/
 
 # This project uses Bun; avoid accidental lockfiles from other package managers
 /package-lock.json

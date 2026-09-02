@@ -1,4 +1,4 @@
-import { centres, courses, jobs, pathways } from "./data";
+import { catalogSources, centres, courses, jobs, pathways } from "./data";
 import {
   EDUCATION_RANKS,
   type CatalogQuery,
@@ -209,6 +209,7 @@ function compactCourse(c: Course) {
     minEducation: c.minEducation,
     scheme: c.scheme,
     employmentType: c.employmentType,
+    source: c.source,
     sourceUrl: c.sourceUrl,
     summary: c.summary,
   };
@@ -225,6 +226,7 @@ function compactJob(j: Job) {
     wage: j.wage,
     type: j.type,
     minEducation: j.minEducation,
+    source: j.source,
     skills: j.skills ?? [],
     vacancies: j.vacancies ?? null,
     expiresAt: j.expiresAt ?? null,
@@ -239,6 +241,7 @@ function compactPathway(p: Pathway) {
     title: p.title,
     kind: p.kind,
     nextStep: p.nextStep,
+    source: p.source,
     sourceUrl: p.sourceUrl,
     summary: p.summary,
   };
@@ -252,6 +255,7 @@ function compactCentre(c: Centre) {
     state: c.state,
     sectors: c.sectors,
     address: c.address,
+    source: c.source,
     sourceUrl: c.sourceUrl,
   };
 }
@@ -274,13 +278,25 @@ export function runTool(
 
   switch (name) {
     case "search_courses":
-      return { courses: searchCourses(query).map(compactCourse) };
+      return {
+        catalogSource: catalogSources.courses,
+        courses: searchCourses(query).map(compactCourse),
+      };
     case "search_jobs":
-      return { jobs: searchJobs(query).map(compactJob) };
+      return {
+        catalogSource: catalogSources.jobs,
+        jobs: searchJobs(query).map(compactJob),
+      };
     case "search_pathways":
-      return { pathways: searchPathways(query).map(compactPathway) };
+      return {
+        catalogSource: catalogSources.pathways,
+        pathways: searchPathways(query).map(compactPathway),
+      };
     case "search_centres":
-      return { centres: searchCentres(query).map(compactCentre) };
+      return {
+        catalogSource: catalogSources.centres,
+        centres: searchCentres(query).map(compactCentre),
+      };
     default:
       return { error: `Unknown tool ${name}` };
   }

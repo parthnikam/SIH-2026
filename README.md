@@ -15,8 +15,13 @@ bun dev
 ```
 
 The app reads its saved government-data snapshot from `data/generated/` and does
-not contact government portals during `dev`, `build`, or `start`. On a clean
-clone it uses the seeded catalog until the first manual refresh.
+not contact government portals during `dev`, `build`, or `start`. There is no
+seed fallback: run `npm run data:refresh` before starting a clean clone. Missing,
+empty, or invalid generated catalog files stop startup with a refresh instruction.
+
+Catalog API responses and AI catalog-tool results include a `catalogSource`
+object. Its `loadedFrom`, `isPrimarySearchFile`, `file`, record count, and snapshot
+timestamp show exactly which primary JSON file was searched.
 
 ## Runtime profile storage
 
