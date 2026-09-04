@@ -37,9 +37,14 @@ export default async function InterviewPage({
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10">
       <div className="flex items-baseline justify-between gap-4">
         <h1 className="text-2xl font-medium">Counselling record</h1>
-        <Link href="/" className="text-sm underline">
-          New call
-        </Link>
+        <div className="flex gap-4 text-sm">
+          <Link href="/records" className="underline">
+            All records
+          </Link>
+          <Link href="/" className="underline">
+            New call
+          </Link>
+        </div>
       </div>
       <p className="text-sm text-zinc-600">
         {row.status} · {new Date(row.updatedAt).toLocaleString("en-IN")}

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Phone } from "@/components/phone/Phone";
 import { SignInPhone } from "@/components/auth/SignInPhone";
 import { UserBar } from "@/components/auth/UserBar";
@@ -24,11 +23,6 @@ export default async function Home() {
         />
       ) : null}
       {signedIn ? <Phone /> : <SignInPhone />}
-      {signedIn ? (
-        <Link href="/officer" className="text-sm text-zinc-600 underline">
-          Officer desk
-        </Link>
-      ) : null}
     </div>
   );
 }
