@@ -4,6 +4,8 @@ import type {
   Recommendation,
 } from "@/lib/catalog/types";
 import { getInterview, patchInterview } from "@/lib/interviews/store";
+import { hasSupabaseEnv } from "@/lib/supabase/config";
+import { getAuthUser } from "@/lib/supabase/auth";
 import {
   ensureUserProfile,
   updateUserProfile,
@@ -102,6 +104,14 @@ function profileResponse(profile: Awaited<ReturnType<typeof ensureUserProfile>>)
 }
 
 export async function POST(request: Request) {
+  try {
+  if (hasSupabaseEnv()) {
+    const user = await getAuthUser();
+    if (!user) {
+      return Response.json({ error: "Sign in required." }, { status: 401 });
+    }
+  }
+
   const body = (await request.json()) as {
     name?: string;
     args?: Record<string, unknown>;
@@ -202,4 +212,9 @@ export async function POST(request: Request) {
   }
 
   return Response.json({ error: `Unknown tool ${name}` }, { status: 400 });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Tool request failed.";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
