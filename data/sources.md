@@ -10,8 +10,9 @@ Seeded from public government pages. No login-walled MIS was scraped.
 | NQR migration | Kaushalverse | https://kaushalverse.ncvet.gov.in/homepage/repository |
 | Course / centre discovery model | Skill India Digital Hub | https://www.skillindiadigital.gov.in |
 | SC skilling eligibility | PM-DAKSH | https://pmdaksh.dosje.gov.in |
-| District jobs shape | National Career Service | https://www.ncs.gov.in |
+| Live course list | PM-AJAY, Department of Social Justice and Empowerment (MoSJE) | https://pmajay.dosje.gov.in/CourseList |
+| Live jobs | National Career Service, Ministry of Labour and Employment | https://www.ncs.gov.in/job-listing |
 | Self-employment credit | NSFDC | https://nsfdc.nic.in |
 | Informal worker job match | e-Shram (via NCS) | https://eshram.gov.in |
 
-Districts in this prototype: Sitapur (UP), Azamgarh (UP), Gaya (Bihar), Yavatmal (Maharashtra), Madurai (Tamil Nadu), Jaipur (Rajasthan).
+Run `npm run data:refresh` to fetch every available PM-AJAY course and NCS job into `data/generated/`. Complete upstream records are retained in `*.raw.json`; cleaned files power the recommendation search. App startup never contacts either portal. If a refresh fails, the last good snapshot is retained. There is no seed fallback: a clean clone must be refreshed before the app starts. Catalog API and AI tool responses include `catalogSource`, which identifies the primary file actually searched.

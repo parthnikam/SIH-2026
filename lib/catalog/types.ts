@@ -16,11 +16,11 @@ export type Course = {
   id: string;
   title: string;
   qpCode: string;
-  nsqfLevel: number;
-  hours: number;
+  nsqfLevel: number | null;
+  hours: number | null;
   sector: string;
   giaDomain: string;
-  minEducation: EducationBand;
+  minEducation: EducationBand | null;
   states: string[];
   districts: string[];
   scheme: string;
@@ -28,6 +28,10 @@ export type Course = {
   source: string;
   sourceUrl: string;
   summary: string;
+  courseLevel?: string | null;
+  courseName?: string | null;
+  subSector?: string | null;
+  upstreamSerial?: number;
 };
 
 export type Job = {
@@ -39,10 +43,16 @@ export type Job = {
   state: string;
   wage: string;
   type: "wage" | "gig" | "apprentice";
-  minEducation: EducationBand;
+  minEducation: EducationBand | null;
   source: string;
   sourceUrl: string;
   summary: string;
+  upstreamId?: number;
+  skills?: string[];
+  vacancies?: number | null;
+  postedAt?: string | null;
+  expiresAt?: string | null;
+  remote?: boolean;
 };
 
 export type Pathway = {
@@ -81,15 +91,37 @@ export type CatalogQuery = {
 export type BeneficiaryProfile = {
   name?: string;
   village?: string;
+  block?: string;
   district?: string;
   state?: string;
   education?: string;
   familyOccupation?: string;
   currentLivelihood?: string;
   skills?: string;
+  priorTraining?: string;
   constraints?: string;
   preference?: string;
   language?: string;
+};
+
+export type ProfileRequirement =
+  | keyof BeneficiaryProfile
+  | "villageOrBlock";
+
+export type ProfileCompletion = {
+  complete: boolean;
+  completionPercent: number;
+  missingFields: ProfileRequirement[];
+};
+
+export type UserProfile = {
+  schemaVersion: 1;
+  id: string;
+  interviewId: string;
+  createdAt: string;
+  updatedAt: string;
+  profile: BeneficiaryProfile;
+  completion: ProfileCompletion;
 };
 
 export type Recommendation = {

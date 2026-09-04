@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getInterview } from "@/lib/interviews/store";
+import { getUserProfile, profileCompletion } from "@/lib/profiles/store";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +14,20 @@ export default async function InterviewPage({
   const row = await getInterview(id);
   if (!row) notFound();
 
-  const p = row.profile;
+  const persistedProfile = await getUserProfile(id);
+  const p = persistedProfile?.profile ?? row.profile;
+  const completion = persistedProfile?.completion ?? profileCompletion(p);
   const fields: [string, string | undefined][] = [
     ["Name", p.name],
-    ["Village / block", p.village],
+    ["Village", p.village],
+    ["Block", p.block],
     ["District", p.district],
     ["State", p.state],
     ["Education", p.education],
     ["Family occupation", p.familyOccupation],
     ["Current livelihood", p.currentLivelihood],
     ["Skills", p.skills],
+    ["Prior training", p.priorTraining],
     ["Constraints", p.constraints],
     ["Preference", p.preference],
     ["Language", p.language],
@@ -38,6 +43,10 @@ export default async function InterviewPage({
       </div>
       <p className="text-sm text-zinc-600">
         {row.status} · {new Date(row.updatedAt).toLocaleString("en-IN")}
+        {" · "}
+        {completion.complete
+          ? "profile complete"
+          : `profile ${completion.completionPercent}% complete`}
       </p>
 
       <section>

@@ -1,7 +1,4 @@
-import coursesJson from "@/data/courses.json";
-import jobsJson from "@/data/jobs.json";
-import pathwaysJson from "@/data/pathways.json";
-import centresJson from "@/data/centres.json";
+import { catalogSources, centres, courses, jobs, pathways } from "./data";
 import {
   EDUCATION_RANKS,
   type CatalogQuery,
@@ -12,11 +9,6 @@ import {
   type Job,
   type Pathway,
 } from "./types";
-
-const courses = coursesJson as Course[];
-const jobs = jobsJson as Job[];
-const pathways = pathwaysJson as Pathway[];
-const centres = centresJson as Centre[];
 
 function tokens(value: string | undefined) {
   return (value ?? "")
@@ -36,7 +28,8 @@ function scoreHay(hay: string, queryWords: string[]) {
   return score;
 }
 
-function educationOk(min: EducationBand, user?: string) {
+function educationOk(min: EducationBand | null, user?: string) {
+  if (!min) return true;
   if (!user) return true;
   const key = user.toLowerCase() as EducationBand;
   const userRank = EDUCATION_RANKS[key];
@@ -46,7 +39,7 @@ function educationOk(min: EducationBand, user?: string) {
 
 function placeBoost(
   query: CatalogQuery,
-  state: string,
+  state?: string,
   district?: string,
   states?: string[],
   districts?: string[],
@@ -57,7 +50,7 @@ function placeBoost(
   if (qDistrict && district?.toLowerCase() === qDistrict) boost += 8;
   if (qDistrict && districts?.some((d) => d.toLowerCase() === qDistrict))
     boost += 8;
-  if (qState && state.toLowerCase() === qState) boost += 3;
+  if (qState && state?.toLowerCase() === qState) boost += 3;
   if (qState && states?.some((s) => s.toLowerCase() === qState)) boost += 3;
   if (states && states.length === 0 && !district) boost += 1;
   return boost;
@@ -70,12 +63,39 @@ export function searchCourses(query: CatalogQuery): Course[] {
   return courses
     .map((c) => {
       if (!educationOk(c.minEducation, query.education)) return null;
-      if (query.sector && !c.sector.toLowerCase().includes(query.sector.toLowerCase()) && !c.giaDomain.toLowerCase().includes(query.sector.toLowerCase()))
+      if (
+        query.district &&
+        c.districts.length > 0 &&
+        !c.districts.some(
+          (district) => district.toLowerCase() === query.district?.toLowerCase(),
+        )
+      )
         return null;
-      if (emp && emp !== "either" && c.employmentType !== "either" && c.employmentType !== emp)
+      if (
+        query.state &&
+        c.states.length > 0 &&
+        !c.states.some(
+          (state) => state.toLowerCase() === query.state?.toLowerCase(),
+        )
+      )
+        return null;
+      if (
+        query.sector &&
+        !c.sector.toLowerCase().includes(query.sector.toLowerCase()) &&
+        !c.giaDomain.toLowerCase().includes(query.sector.toLowerCase())
+      )
+        return null;
+      if (
+        emp &&
+        emp !== "either" &&
+        c.employmentType !== "either" &&
+        c.employmentType !== emp
+      )
         return null;
       const hay = `${c.title} ${c.qpCode} ${c.sector} ${c.giaDomain} ${c.summary} ${c.scheme}`;
-      const s = scoreHay(hay, words) + placeBoost(query, query.state ?? "", undefined, c.states, c.districts);
+      const s =
+        scoreHay(hay, words) +
+        placeBoost(query, undefined, undefined, c.states, c.districts);
       if (words.length && s < 3) return null;
       return { item: c, s };
     })
@@ -91,12 +111,26 @@ export function searchJobs(query: CatalogQuery): Job[] {
   return jobs
     .map((j) => {
       if (!educationOk(j.minEducation, query.education)) return null;
-      if (query.sector && !j.sector.toLowerCase().includes(query.sector.toLowerCase()) && !j.title.toLowerCase().includes(query.sector.toLowerCase()))
+      if (
+        query.sector &&
+        !j.sector.toLowerCase().includes(query.sector.toLowerCase()) &&
+        !j.title.toLowerCase().includes(query.sector.toLowerCase())
+      )
         return null;
       const hay = `${j.title} ${j.employer} ${j.sector} ${j.district} ${j.state} ${j.summary}`;
       const keyword = scoreHay(hay, words);
       if (words.length && keyword < 3) return null;
-      if (query.district && j.district.toLowerCase() !== query.district.toLowerCase())
+      if (
+        query.district &&
+        j.district.toLowerCase() !== query.district.toLowerCase()
+      ) {
+        if (j.state.toLowerCase() !== "all india") return null;
+      }
+      if (
+        query.state &&
+        j.state.toLowerCase() !== query.state.toLowerCase() &&
+        j.state.toLowerCase() !== "all india"
+      )
         return null;
       const s = keyword + placeBoost(query, j.state, j.district);
       return { item: j, s };
@@ -113,7 +147,12 @@ export function searchPathways(query: CatalogQuery): Pathway[] {
   const emp = query.employmentType as EmploymentType | undefined;
   return pathways
     .map((p) => {
-      if (emp && emp !== "either" && p.employmentType !== "either" && p.employmentType !== emp)
+      if (
+        emp &&
+        emp !== "either" &&
+        p.employmentType !== "either" &&
+        p.employmentType !== emp
+      )
         return null;
       const hay = `${p.title} ${p.giaDomain} ${p.summary} ${p.kind}`;
       const s = scoreHay(hay, words) + (emp === "self" && p.kind === "nsfdc" ? 4 : 0);
@@ -167,8 +206,10 @@ function compactCourse(c: Course) {
     nsqfLevel: c.nsqfLevel,
     hours: c.hours,
     sector: c.sector,
+    minEducation: c.minEducation,
     scheme: c.scheme,
     employmentType: c.employmentType,
+    source: c.source,
     sourceUrl: c.sourceUrl,
     summary: c.summary,
   };
@@ -179,10 +220,16 @@ function compactJob(j: Job) {
     id: j.id,
     title: j.title,
     employer: j.employer,
+    sector: j.sector,
     district: j.district,
     state: j.state,
     wage: j.wage,
     type: j.type,
+    minEducation: j.minEducation,
+    source: j.source,
+    skills: j.skills ?? [],
+    vacancies: j.vacancies ?? null,
+    expiresAt: j.expiresAt ?? null,
     sourceUrl: j.sourceUrl,
     summary: j.summary,
   };
@@ -194,6 +241,7 @@ function compactPathway(p: Pathway) {
     title: p.title,
     kind: p.kind,
     nextStep: p.nextStep,
+    source: p.source,
     sourceUrl: p.sourceUrl,
     summary: p.summary,
   };
@@ -207,6 +255,7 @@ function compactCentre(c: Centre) {
     state: c.state,
     sectors: c.sectors,
     address: c.address,
+    source: c.source,
     sourceUrl: c.sourceUrl,
   };
 }
@@ -229,13 +278,25 @@ export function runTool(
 
   switch (name) {
     case "search_courses":
-      return { courses: searchCourses(query).map(compactCourse) };
+      return {
+        catalogSource: catalogSources.courses,
+        courses: searchCourses(query).map(compactCourse),
+      };
     case "search_jobs":
-      return { jobs: searchJobs(query).map(compactJob) };
+      return {
+        catalogSource: catalogSources.jobs,
+        jobs: searchJobs(query).map(compactJob),
+      };
     case "search_pathways":
-      return { pathways: searchPathways(query).map(compactPathway) };
+      return {
+        catalogSource: catalogSources.pathways,
+        pathways: searchPathways(query).map(compactPathway),
+      };
     case "search_centres":
-      return { centres: searchCentres(query).map(compactCentre) };
+      return {
+        catalogSource: catalogSources.centres,
+        centres: searchCentres(query).map(compactCentre),
+      };
     default:
       return { error: `Unknown tool ${name}` };
   }

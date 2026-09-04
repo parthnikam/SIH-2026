@@ -1,4 +1,74 @@
-.env
-.env.local
-node_modules
-.next/
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+/.bun/
+
+# Next.js and production output
+/.next/
+/.next-profiles/
+/out/
+/build/
+/dist/
+
+# Tests and coverage
+/coverage/
+/test-results/
+/playwright-report/
+/blob-report/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment files and local secrets
+.env*
+!.env.example
+*.pem
+
+# Local runtime data
+/data/runtime-interviews.json
+/data/runtime-user-profiles.json
+/data/generated/
+
+# This project uses Bun; avoid accidental lockfiles from other package managers
+/package-lock.json
+/pnpm-lock.yaml
+/yarn.lock
+
+# Logs and tool caches
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+bun-debug.log*
+bun-error.log*
+.eslintcache
+.stylelintcache
+/.cache/
+/.turbo/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Local temporary files
+*.tmp
+*.temp
+*.bak
+
+# Deployment providers
+.vercel/
