@@ -3,7 +3,7 @@ export async function readJson<T>(response: Response): Promise<T> {
   if (!text.trim()) {
     throw new Error(
       response.status === 401
-        ? "Sign in required."
+        ? "Request was not authorized."
         : `Server error ${response.status}. Check the terminal running bun run dev.`,
     );
   }

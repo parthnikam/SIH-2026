@@ -1,26 +1,13 @@
 import Link from "next/link";
-import { UserBar } from "@/components/auth/UserBar";
 import { listInterviews } from "@/lib/interviews/store";
-import { getAuthUser } from "@/lib/supabase/auth";
-import { hasSupabaseEnv } from "@/lib/supabase/config";
 
 export const dynamic = "force-dynamic";
 
 export default async function RecordsPage() {
-  const user = hasSupabaseEnv() ? await getAuthUser() : null;
   const rows = await listInterviews();
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-4 py-10">
-      {user ? (
-        <UserBar
-          email={user.email}
-          name={
-            (user.user_metadata?.full_name as string | undefined) ??
-            (user.user_metadata?.name as string | undefined)
-          }
-        />
-      ) : null}
       <div className="flex items-baseline justify-between gap-4">
         <h1 className="text-2xl font-medium">Your records</h1>
         <Link href="/" className="text-sm underline">

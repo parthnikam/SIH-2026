@@ -1,8 +1,8 @@
 import "server-only";
 
-import { Pool } from "pg";
 import { requireAdmin } from "@/lib/admin/auth";
 import { normalizeDistrict, normalizeState } from "@/lib/admin/regions";
+import { getSupabasePool } from "@/lib/supabase/database";
 
 type DatabaseSession = {
   id: string;
@@ -54,47 +54,6 @@ export type DashboardData = {
   averageDurationSeconds: number;
   lastUpdatedAt: string | null;
 };
-
-declare global {
-  var __pmAjayAdminPool: Pool | undefined;
-}
-
-function createPool() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const password = process.env.SUPABASE_PASSWORD;
-
-  if (!supabaseUrl || !password) {
-    throw new Error(
-      "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_PASSWORD.",
-    );
-  }
-
-  const projectReference = new URL(supabaseUrl).hostname.split(".")[0];
-
-  return new Pool({
-    host:
-      process.env.SUPABASE_DB_HOST ||
-      "aws-0-ap-southeast-1.pooler.supabase.com",
-    port: Number(process.env.SUPABASE_DB_PORT || 5432),
-    user: process.env.SUPABASE_DB_USER || `postgres.${projectReference}`,
-    password,
-    database: process.env.SUPABASE_DB_NAME || "postgres",
-    // Supabase's pooler currently presents a chain that Node cannot validate.
-    // Traffic remains encrypted; certificate verification is disabled only here.
-    ssl: { rejectUnauthorized: false },
-    max: 3,
-    idleTimeoutMillis: 20_000,
-    connectionTimeoutMillis: 30_000,
-    allowExitOnIdle: true,
-  });
-}
-
-function databasePool() {
-  if (!globalThis.__pmAjayAdminPool) {
-    globalThis.__pmAjayAdminPool = createPool();
-  }
-  return globalThis.__pmAjayAdminPool;
-}
 
 function textValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -148,7 +107,7 @@ function normalizeLanguage(language: string) {
 export async function getAdminDashboardData(): Promise<DashboardData> {
   await requireAdmin();
 
-  const pool = databasePool();
+  const pool = getSupabasePool();
   const result = await pool.query<DatabaseSession>(`
     select
       s.id,

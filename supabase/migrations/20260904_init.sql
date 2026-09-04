@@ -1,11 +1,11 @@
 -- PM-AJAY Livelihood Helpline
 -- Paste into Supabase SQL Editor (or run as a migration).
--- auth.users is managed by Supabase Auth. We only add public tables.
+-- Supabase Auth owns auth.users. The application tables live in public.
 
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
--- 1. profiles  — Google user (beneficiary or officer)
+-- 1. profiles  — optional authenticated user (beneficiary or officer)
 -- ---------------------------------------------------------------------------
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -96,7 +96,7 @@ create trigger counselling_sessions_set_updated_at
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- Auto-create a profile when a Google user signs in
+-- Auto-create a profile when a Supabase Auth user is created
 -- ---------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger

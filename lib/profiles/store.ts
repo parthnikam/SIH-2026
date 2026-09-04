@@ -7,7 +7,7 @@ import type {
   ProfileRequirement,
   UserProfile,
 } from "@/lib/catalog/types";
-import { hasSupabaseEnv } from "@/lib/supabase/config";
+import { hasSupabaseDatabaseEnv } from "@/lib/supabase/database";
 import {
   getInterview,
   patchInterview,
@@ -138,7 +138,7 @@ export async function ensureUserProfile(
   interviewId: string,
   initial: BeneficiaryProfile = {},
 ): Promise<UserProfile> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     const interview = await getInterview(interviewId);
     if (!interview) {
       throw new Error("Session not found.");
@@ -176,7 +176,7 @@ export async function ensureUserProfile(
 export async function getUserProfile(
   interviewId: string,
 ): Promise<UserProfile | null> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     const interview = await getInterview(interviewId);
     if (!interview) return null;
     return fromInterview(
@@ -194,7 +194,7 @@ export async function updateUserProfile(
   interviewId: string,
   patch: BeneficiaryProfile,
 ): Promise<UserProfile | null> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     const updated = await patchInterview(interviewId, { profile: patch });
     if (!updated) return null;
     return fromInterview(

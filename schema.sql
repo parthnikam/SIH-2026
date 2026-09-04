@@ -1,11 +1,11 @@
 -- PM-AJAY Livelihood Helpline
 -- Paste into Supabase SQL Editor (or run as a migration).
--- auth.users is managed by Supabase Auth. We only add public tables.
+-- The public counselling flow does not require Supabase Auth or Google OAuth.
 
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
--- 1. profiles  — Google user (beneficiary or officer)
+-- 1. profiles  — optional legacy Supabase Auth account metadata
 -- ---------------------------------------------------------------------------
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -24,7 +24,8 @@ create table if not exists public.profiles (
 -- ---------------------------------------------------------------------------
 create table if not exists public.counselling_sessions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles (id) on delete cascade,
+  user_id uuid references public.profiles (id) on delete cascade,
+  visitor_id uuid,
   status text not null default 'active'
     check (status in ('active', 'completed')),
   language text,
@@ -32,11 +33,16 @@ create table if not exists public.counselling_sessions (
   started_at timestamptz not null default now(),
   ended_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint counselling_sessions_owner_check
+    check (num_nonnulls(user_id, visitor_id) = 1)
 );
 
 create index if not exists counselling_sessions_user_id_idx
   on public.counselling_sessions (user_id, created_at desc);
+
+create index if not exists counselling_sessions_visitor_id_idx
+  on public.counselling_sessions (visitor_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
 -- 3. session_turns  — live captions / transcript
@@ -96,7 +102,7 @@ create trigger counselling_sessions_set_updated_at
   for each row execute procedure public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- Auto-create a profile when a Google user signs in
+-- Preserve profile creation for any legacy Supabase Auth users.
 -- ---------------------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger

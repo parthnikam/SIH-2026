@@ -4,8 +4,6 @@ import type {
   Recommendation,
 } from "@/lib/catalog/types";
 import { getInterview, patchInterview } from "@/lib/interviews/store";
-import { hasSupabaseEnv } from "@/lib/supabase/config";
-import { getAuthUser } from "@/lib/supabase/auth";
 import {
   ensureUserProfile,
   updateUserProfile,
@@ -105,13 +103,6 @@ function profileResponse(profile: Awaited<ReturnType<typeof ensureUserProfile>>)
 
 export async function POST(request: Request) {
   try {
-  if (hasSupabaseEnv()) {
-    const user = await getAuthUser();
-    if (!user) {
-      return Response.json({ error: "Sign in required." }, { status: 401 });
-    }
-  }
-
   const body = (await request.json()) as {
     name?: string;
     args?: Record<string, unknown>;

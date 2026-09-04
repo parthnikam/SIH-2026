@@ -1,166 +1,164 @@
+import "server-only";
+
+import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type {
   BeneficiaryProfile,
   Interview,
   Recommendation,
 } from "@/lib/catalog/types";
-import { createClient } from "./server";
+import { getSupabasePool } from "./database";
+import { getOrCreateVisitorId, getVisitorId } from "./visitor";
 
-type SessionRow = {
+interface SessionRow extends QueryResultRow {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  visitor_id: string;
   status: "active" | "completed";
   language: string | null;
-  beneficiary: BeneficiaryProfile;
-  started_at: string;
-  ended_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
+  beneficiary: BeneficiaryProfile | null;
+  started_at: Date | string;
+  ended_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
 
-type TurnRow = {
+interface TurnRow extends QueryResultRow {
   seq: number;
   role: "user" | "agent";
   content: string;
-};
+}
 
-type RecRow = {
+interface RecRow extends QueryResultRow {
   rank: number;
   kind: Recommendation["kind"];
   catalog_id: string;
   title: string;
   detail: string;
   source_url: string | null;
-};
-
-async function currentUser() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return { supabase, user: null };
-  return { supabase, user: data.user };
 }
 
-async function ensureProfile(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  user: NonNullable<Awaited<ReturnType<typeof currentUser>>["user"]>,
-) {
-  const meta = user.user_metadata ?? {};
-  const { error } = await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      email: user.email,
-      full_name: (meta.full_name ?? meta.name ?? null) as string | null,
-      avatar_url: (meta.avatar_url ?? meta.picture ?? null) as string | null,
-    },
-    { onConflict: "id" },
-  );
-  if (error) {
-    throw new Error(
-      error.message.includes("schema cache") || error.code === "PGRST205"
-        ? "Supabase tables are missing. Run supabase/schema.sql in the SQL Editor."
-        : error.message,
+type Queryable = Pool | PoolClient;
+
+function isoDate(value: Date | string) {
+  return new Date(value).toISOString();
+}
+
+function databaseError(error: unknown): Error {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "42703"
+  ) {
+    return new Error(
+      "Supabase visitor storage is not installed. Run supabase/migrations/20260905_remove_google_auth.sql.",
     );
   }
+  return error instanceof Error ? error : new Error("Supabase query failed.");
 }
 
 function toInterview(
   session: SessionRow,
   turns: TurnRow[] = [],
-  recs: RecRow[] = [],
+  recommendations: RecRow[] = [],
 ): Interview {
   return {
     id: session.id,
-    createdAt: session.created_at,
-    updatedAt: session.updated_at,
+    createdAt: isoDate(session.created_at),
+    updatedAt: isoDate(session.updated_at),
     status: session.status,
     profile: session.beneficiary ?? {},
     transcript: [...turns]
       .sort((a, b) => a.seq - b.seq)
-      .map((t) => ({ role: t.role, text: t.content })),
-    recommendations: [...recs]
+      .map((turn) => ({ role: turn.role, text: turn.content })),
+    recommendations: [...recommendations]
       .sort((a, b) => a.rank - b.rank)
-      .map((r) => ({
-        kind: r.kind,
-        id: r.catalog_id,
-        title: r.title,
-        detail: r.detail,
-        sourceUrl: r.source_url ?? undefined,
+      .map((recommendation) => ({
+        kind: recommendation.kind,
+        id: recommendation.catalog_id,
+        title: recommendation.title,
+        detail: recommendation.detail,
+        sourceUrl: recommendation.source_url ?? undefined,
       })),
   };
 }
 
-async function loadChildren(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  sessionId: string,
-) {
-  const [{ data: turns }, { data: recs }] = await Promise.all([
-    supabase
-      .from("session_turns")
-      .select("seq, role, content")
-      .eq("session_id", sessionId)
-      .order("seq"),
-    supabase
-      .from("session_recommendations")
-      .select("rank, kind, catalog_id, title, detail, source_url")
-      .eq("session_id", sessionId)
-      .order("rank"),
+async function loadChildren(database: Queryable, sessionId: string) {
+  const [turns, recommendations] = await Promise.all([
+    database.query<TurnRow>(
+      `select seq, role, content
+       from public.session_turns
+       where session_id = $1
+       order by seq`,
+      [sessionId],
+    ),
+    database.query<RecRow>(
+      `select rank, kind, catalog_id, title, detail, source_url
+       from public.session_recommendations
+       where session_id = $1
+       order by rank`,
+      [sessionId],
+    ),
   ]);
-  return {
-    turns: (turns ?? []) as TurnRow[],
-    recs: (recs ?? []) as RecRow[],
-  };
+
+  return { turns: turns.rows, recommendations: recommendations.rows };
 }
 
 export async function createInterview(): Promise<Interview> {
-  const { supabase, user } = await currentUser();
-  if (!user) {
-    throw new Error("Sign in required.");
-  }
-  await ensureProfile(supabase, user);
+  const visitorId = await getOrCreateVisitorId();
 
-  const { data, error } = await supabase
-    .from("counselling_sessions")
-    .insert({ user_id: user.id, status: "active", beneficiary: {} })
-    .select("*")
-    .single();
-
-  if (error || !data) {
-    const message = error?.message ?? "Could not create session.";
-    throw new Error(
-      message.includes("schema cache") || error?.code === "PGRST205"
-        ? "Supabase tables are missing. Run supabase/schema.sql in the SQL Editor."
-        : message,
+  try {
+    const result = await getSupabasePool().query<SessionRow>(
+      `insert into public.counselling_sessions
+        (user_id, visitor_id, status, beneficiary)
+       values (null, $1, 'active', '{}'::jsonb)
+       returning *`,
+      [visitorId],
     );
+    return toInterview(result.rows[0]);
+  } catch (error) {
+    throw databaseError(error);
   }
-  return toInterview(data as SessionRow);
 }
 
 export async function listInterviews(): Promise<Interview[]> {
-  const { supabase, user } = await currentUser();
-  if (!user) return [];
+  const visitorId = await getVisitorId();
+  if (!visitorId) return [];
 
-  const { data, error } = await supabase
-    .from("counselling_sessions")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (error || !data) return [];
-  return (data as SessionRow[]).map((row) => toInterview(row));
+  try {
+    const result = await getSupabasePool().query<SessionRow>(
+      `select *
+       from public.counselling_sessions
+       where visitor_id = $1
+       order by created_at desc`,
+      [visitorId],
+    );
+    return result.rows.map((row) => toInterview(row));
+  } catch (error) {
+    throw databaseError(error);
+  }
 }
 
 export async function getInterview(id: string): Promise<Interview | null> {
-  const { supabase, user } = await currentUser();
-  if (!user) return null;
+  const visitorId = await getVisitorId();
+  if (!visitorId) return null;
 
-  const { data, error } = await supabase
-    .from("counselling_sessions")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  try {
+    const pool = getSupabasePool();
+    const result = await pool.query<SessionRow>(
+      `select *
+       from public.counselling_sessions
+       where id = $1 and visitor_id = $2`,
+      [id, visitorId],
+    );
+    const session = result.rows[0];
+    if (!session) return null;
 
-  if (error || !data) return null;
-  const children = await loadChildren(supabase, id);
-  return toInterview(data as SessionRow, children.turns, children.recs);
+    const children = await loadChildren(pool, id);
+    return toInterview(session, children.turns, children.recommendations);
+  } catch (error) {
+    throw databaseError(error);
+  }
 }
 
 export async function patchInterview(
@@ -172,68 +170,99 @@ export async function patchInterview(
     recommendations?: Recommendation[];
   },
 ): Promise<Interview | null> {
-  const { supabase, user } = await currentUser();
-  if (!user) return null;
+  const visitorId = await getVisitorId();
+  if (!visitorId) return null;
 
-  const { data: existing, error: existingError } = await supabase
-    .from("counselling_sessions")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (existingError || !existing) return null;
-  const current = existing as SessionRow;
-
-  const nextBeneficiary = patch.profile
-    ? { ...current.beneficiary, ...patch.profile }
-    : current.beneficiary;
-
-  const { data: updated, error } = await supabase
-    .from("counselling_sessions")
-    .update({
-      status: patch.status ?? current.status,
-      language: nextBeneficiary.language ?? current.language,
-      beneficiary: nextBeneficiary,
-      ended_at:
-        patch.status === "completed"
-          ? (current.ended_at ?? new Date().toISOString())
-          : current.ended_at,
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
-
-  if (error || !updated) return null;
-
-  if (patch.transcript) {
-    await supabase.from("session_turns").delete().eq("session_id", id);
-    if (patch.transcript.length) {
-      const rows = patch.transcript.map((line, index) => ({
-        session_id: id,
-        seq: index,
-        role: line.role,
-        content: line.text,
-      }));
-      await supabase.from("session_turns").insert(rows);
+  const client = await getSupabasePool().connect();
+  try {
+    await client.query("begin");
+    const existingResult = await client.query<SessionRow>(
+      `select *
+       from public.counselling_sessions
+       where id = $1 and visitor_id = $2
+       for update`,
+      [id, visitorId],
+    );
+    const current = existingResult.rows[0];
+    if (!current) {
+      await client.query("rollback");
+      return null;
     }
-  }
 
-  if (patch.recommendations) {
-    await supabase.from("session_recommendations").delete().eq("session_id", id);
-    if (patch.recommendations.length) {
-      const rows = patch.recommendations.map((rec, index) => ({
-        session_id: id,
-        rank: index + 1,
-        kind: rec.kind,
-        catalog_id: rec.id,
-        title: rec.title,
-        detail: rec.detail,
-        source_url: rec.sourceUrl ?? null,
-      }));
-      await supabase.from("session_recommendations").insert(rows);
+    const nextBeneficiary = patch.profile
+      ? { ...(current.beneficiary ?? {}), ...patch.profile }
+      : (current.beneficiary ?? {});
+    const completedAt =
+      patch.status === "completed"
+        ? (current.ended_at ?? new Date())
+        : current.ended_at;
+
+    const updatedResult = await client.query<SessionRow>(
+      `update public.counselling_sessions
+       set status = $3,
+           language = $4,
+           beneficiary = $5,
+           ended_at = $6
+       where id = $1 and visitor_id = $2
+       returning *`,
+      [
+        id,
+        visitorId,
+        patch.status ?? current.status,
+        nextBeneficiary.language ?? current.language,
+        nextBeneficiary,
+        completedAt,
+      ],
+    );
+
+    if (patch.transcript) {
+      await client.query(
+        "delete from public.session_turns where session_id = $1",
+        [id],
+      );
+      for (const [sequence, line] of patch.transcript.entries()) {
+        await client.query(
+          `insert into public.session_turns (session_id, seq, role, content)
+           values ($1, $2, $3, $4)`,
+          [id, sequence, line.role, line.text],
+        );
+      }
     }
-  }
 
-  const children = await loadChildren(supabase, id);
-  return toInterview(updated as SessionRow, children.turns, children.recs);
+    if (patch.recommendations) {
+      await client.query(
+        "delete from public.session_recommendations where session_id = $1",
+        [id],
+      );
+      for (const [index, recommendation] of patch.recommendations.entries()) {
+        await client.query(
+          `insert into public.session_recommendations
+            (session_id, rank, kind, catalog_id, title, detail, source_url)
+           values ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            id,
+            index + 1,
+            recommendation.kind,
+            recommendation.id,
+            recommendation.title,
+            recommendation.detail,
+            recommendation.sourceUrl ?? null,
+          ],
+        );
+      }
+    }
+
+    const children = await loadChildren(client, id);
+    await client.query("commit");
+    return toInterview(
+      updatedResult.rows[0],
+      children.turns,
+      children.recommendations,
+    );
+  } catch (error) {
+    await client.query("rollback").catch(() => undefined);
+    throw databaseError(error);
+  } finally {
+    client.release();
+  }
 }

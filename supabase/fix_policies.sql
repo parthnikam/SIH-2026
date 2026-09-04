@@ -9,7 +9,7 @@ grant select, insert, update, delete on public.counselling_sessions to authentic
 grant select, insert, update, delete on public.session_turns to authenticated;
 grant select, insert, update, delete on public.session_recommendations to authenticated;
 
--- Existing Google users who signed in before the profile trigger
+-- Existing Supabase Auth users created before the profile trigger
 insert into public.profiles (id, email, full_name, avatar_url)
 select
   u.id,

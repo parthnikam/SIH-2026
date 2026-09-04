@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Interview, BeneficiaryProfile, Recommendation } from "@/lib/catalog/types";
-import { hasSupabaseEnv } from "@/lib/supabase/config";
+import { hasSupabaseDatabaseEnv } from "@/lib/supabase/database";
 import * as supabaseCounselling from "@/lib/supabase/counselling";
 
 const FILE = path.join(process.cwd(), "data", "runtime-interviews.json");
@@ -44,7 +44,7 @@ export function newInterviewId() {
 }
 
 export async function createInterview(): Promise<Interview> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     return supabaseCounselling.createInterview();
   }
   return mutate(async () => {
@@ -66,14 +66,14 @@ export async function createInterview(): Promise<Interview> {
 }
 
 export async function listInterviews(): Promise<Interview[]> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     return supabaseCounselling.listInterviews();
   }
   return readAll();
 }
 
 export async function getInterview(id: string): Promise<Interview | null> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     return supabaseCounselling.getInterview(id);
   }
   const all = await readAll();
@@ -89,7 +89,7 @@ export async function patchInterview(
     recommendations?: Recommendation[];
   },
 ): Promise<Interview | null> {
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseDatabaseEnv()) {
     return supabaseCounselling.patchInterview(id, patch);
   }
   return mutate(async () => {

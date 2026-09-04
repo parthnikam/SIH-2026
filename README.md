@@ -25,11 +25,16 @@ timestamp show exactly which primary JSON file was searched.
 
 ## Runtime profile storage
 
-Starting a counselling call creates an empty user profile in
-`data/runtime-user-profiles.json`. The live counsellor merges newly learned or
-corrected facts into that record after every caller answer. Each record has a
-stable profile ID, location fields suitable for later geographic aggregation,
-and machine-readable completion metadata.
+When `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_PASSWORD` are configured, starting
+a counselling call creates a Supabase record owned by a private, HTTP-only
+visitor cookie. No Google or Supabase Auth login is required. Without those
+variables, local development falls back to `data/runtime-user-profiles.json`
+and `data/runtime-interviews.json`.
+
+The live counsellor merges newly learned or corrected facts into that record
+after every caller answer. Each record has a stable profile ID, location fields
+suitable for later geographic aggregation, and machine-readable completion
+metadata.
 
 Course, job, pathway, and training-centre searches are rejected until all
 required profile facts have been collected. Once complete, searches use the
