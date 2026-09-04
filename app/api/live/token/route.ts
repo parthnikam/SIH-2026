@@ -5,6 +5,9 @@ import { ensureUserProfile } from "@/lib/profiles/store";
 import { hasSupabaseEnv } from "@/lib/supabase/config";
 import { getAuthUser } from "@/lib/supabase/auth";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST() {
   try {
     if (hasSupabaseEnv()) {

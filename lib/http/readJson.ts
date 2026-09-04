@@ -4,7 +4,7 @@ export async function readJson<T>(response: Response): Promise<T> {
     throw new Error(
       response.status === 401
         ? "Sign in required."
-        : `Empty response from server (${response.status}).`,
+        : `Server error ${response.status}. Check the terminal running bun run dev.`,
     );
   }
   try {
