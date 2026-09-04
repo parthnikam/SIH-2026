@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GoogleGenAI, type Session } from "@google/genai";
 import { liveConnectConfig, LIVE_MODEL } from "@/lib/live/config";
+import { readJson } from "@/lib/http/readJson";
 import {
   base64ToInt16,
   downsampleTo16k,
@@ -118,11 +119,11 @@ export function useGeminiCall() {
 
     try {
       const tokenRes = await fetch("/api/live/token", { method: "POST" });
-      const tokenBody = (await tokenRes.json()) as {
+      const tokenBody = await readJson<{
         token?: string;
         interviewId?: string;
         error?: string;
-      };
+      }>(tokenRes);
       if (!tokenRes.ok || !tokenBody.token || !tokenBody.interviewId) {
         throw new Error(tokenBody.error || "Could not start the call.");
       }
@@ -197,7 +198,7 @@ export function useGeminiCall() {
                       interviewId: interviewIdRef.current,
                     }),
                   });
-                  const json = (await res.json()) as Record<string, unknown>;
+                  const json = await readJson<Record<string, unknown>>(res);
                   functionResponses.push({
                     id: fc.id,
                     name: fc.name,

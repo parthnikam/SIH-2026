@@ -7,6 +7,11 @@ import type {
   ProfileRequirement,
   UserProfile,
 } from "@/lib/catalog/types";
+import { hasSupabaseEnv } from "@/lib/supabase/config";
+import {
+  getInterview,
+  patchInterview,
+} from "@/lib/interviews/store";
 
 const FILE = path.join(process.cwd(), "data", "runtime-user-profiles.json");
 
@@ -111,10 +116,51 @@ function newProfile(interviewId: string, initial: BeneficiaryProfile): UserProfi
   };
 }
 
+function fromInterview(
+  interviewId: string,
+  profile: BeneficiaryProfile,
+  createdAt: string,
+  updatedAt: string,
+): UserProfile {
+  const cleaned = cleanPatch(profile);
+  return {
+    schemaVersion: 1,
+    id: interviewId,
+    interviewId,
+    createdAt,
+    updatedAt,
+    profile: cleaned,
+    completion: profileCompletion(cleaned),
+  };
+}
+
 export async function ensureUserProfile(
   interviewId: string,
   initial: BeneficiaryProfile = {},
 ): Promise<UserProfile> {
+  if (hasSupabaseEnv()) {
+    const interview = await getInterview(interviewId);
+    if (!interview) {
+      throw new Error("Session not found.");
+    }
+    if (Object.keys(cleanPatch(initial)).length && !Object.keys(interview.profile).length) {
+      const updated = await patchInterview(interviewId, { profile: initial });
+      if (updated) {
+        return fromInterview(
+          interviewId,
+          updated.profile,
+          updated.createdAt,
+          updated.updatedAt,
+        );
+      }
+    }
+    return fromInterview(
+      interviewId,
+      interview.profile,
+      interview.createdAt,
+      interview.updatedAt,
+    );
+  }
   return mutate(async () => {
     const rows = await readAll();
     const existing = rows.find((row) => row.interviewId === interviewId);
@@ -130,6 +176,16 @@ export async function ensureUserProfile(
 export async function getUserProfile(
   interviewId: string,
 ): Promise<UserProfile | null> {
+  if (hasSupabaseEnv()) {
+    const interview = await getInterview(interviewId);
+    if (!interview) return null;
+    return fromInterview(
+      interviewId,
+      interview.profile,
+      interview.createdAt,
+      interview.updatedAt,
+    );
+  }
   const rows = await readAll();
   return rows.find((row) => row.interviewId === interviewId) ?? null;
 }
@@ -138,6 +194,16 @@ export async function updateUserProfile(
   interviewId: string,
   patch: BeneficiaryProfile,
 ): Promise<UserProfile | null> {
+  if (hasSupabaseEnv()) {
+    const updated = await patchInterview(interviewId, { profile: patch });
+    if (!updated) return null;
+    return fromInterview(
+      interviewId,
+      updated.profile,
+      updated.createdAt,
+      updated.updatedAt,
+    );
+  }
   return mutate(async () => {
     const rows = await readAll();
     const index = rows.findIndex((row) => row.interviewId === interviewId);
